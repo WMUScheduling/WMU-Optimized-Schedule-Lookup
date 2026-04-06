@@ -13,7 +13,7 @@ import {
 import { motion } from "framer-motion";
 import "./App.css";
 
-const CSV_PATH = "/wmu_summer_2026_with_rmp.csv";
+const CSV_PATH = `${import.meta.env.BASE_URL}wmu_summer_2026_with_rmp.csv`;
 
 function parseNumber(value) {
   if (value === null || value === undefined || value === "") return null;
