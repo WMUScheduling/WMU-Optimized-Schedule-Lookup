@@ -3,7 +3,7 @@ import Papa from "papaparse";
 import { Search, Filter, Star, Users, CalendarDays, Clock3, BookOpen, Wifi, RotateCcw } from "lucide-react";
 import { motion } from "framer-motion";
 
-const CSV_PATH = "/wmu_summer_2026_with_rmp.csv";
+const CSV_PATH = `${import.meta.env.BASE_URL}wmu_summer_2026_with_rmp.csv`;
 
 function parseNumber(value) {
   if (value === null || value === undefined || value === "") return null;
