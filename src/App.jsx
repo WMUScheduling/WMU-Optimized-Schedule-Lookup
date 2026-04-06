@@ -67,8 +67,18 @@ function rowScore(row) {
   return rating * 2 - difficulty * 0.6 + Math.min(ratingsCount / 20, 1.5) + Math.min(seats / 20, 1);
 }
 
+function normalizeUrl(url) {
+  if (!url) return "";
+  const trimmed = String(url).trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
 function getProfessorLink(row) {
-  return (
+  const raw =
     row.rmp_link ||
     row.rmp_url ||
     row.rmp_profile ||
@@ -77,6 +87,25 @@ function getProfessorLink(row) {
     row.rateMyProfessorLink ||
     row.rateMyProfessorURL ||
     row.rateMyProfessorProfile ||
+    row["RMP Link"] ||
+    row["RMP URL"] ||
+    row["Rate My Professor"] ||
+    row["Rate My Professor Link"] ||
+    row["Professor URL"] ||
+    "";
+
+  return normalizeUrl(raw);
+}
+
+function getSubjectDescription(row) {
+  return (
+    row.subjectDescription ||
+    row.subjectDesc ||
+    row.departmentDescription ||
+    row.subjectLong ||
+    row.subjectLongDescription ||
+    row["Subject Description"] ||
+    row["Subject Desc"] ||
     ""
   );
 }
@@ -114,6 +143,7 @@ export default function App() {
           _open: String(row.openSection).toLowerCase() === "true",
           _score: rowScore(row),
           _professorLink: getProfessorLink(row),
+          _subjectDescription: getSubjectDescription(row),
         }));
 
         setRows(parsed);
@@ -129,7 +159,23 @@ export default function App() {
   }, []);
 
   const subjects = useMemo(() => {
-    return [...new Set(rows.map((r) => r.subject).filter(Boolean))].sort();
+    const map = new Map();
+
+    rows.forEach((row) => {
+      if (!row.subject) return;
+      if (!map.has(row.subject)) {
+        map.set(row.subject, row._subjectDescription || "");
+      } else if (!map.get(row.subject) && row._subjectDescription) {
+        map.set(row.subject, row._subjectDescription);
+      }
+    });
+
+    return [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([abbr, desc]) => ({
+        value: abbr,
+        label: desc ? `${abbr} | ${desc}` : abbr,
+      }));
   }, [rows]);
 
   const filtered = useMemo(() => {
@@ -149,6 +195,7 @@ export default function App() {
           r.rmp_department,
           r.section,
           r.CRN,
+          r._subjectDescription,
         ]
           .join(" ")
           .toLowerCase()
@@ -292,8 +339,8 @@ export default function App() {
               <select value={subject} onChange={(e) => setSubject(e.target.value)}>
                 <option value="all">All subjects</option>
                 {subjects.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                  <option key={s.value} value={s.value}>
+                    {s.label}
                   </option>
                 ))}
               </select>
@@ -442,8 +489,9 @@ export default function App() {
                         <a
                           href={row._professorLink}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className="professor-link"
+                          title="Open Rate My Professors profile"
                         >
                           {row.facultyNames || "Instructor not listed"}
                         </a>
