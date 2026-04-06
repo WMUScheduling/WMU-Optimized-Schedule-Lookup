@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Wifi,
   MapPin,
-  Star,
   Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -68,6 +67,20 @@ function rowScore(row) {
   return rating * 2 - difficulty * 0.6 + Math.min(ratingsCount / 20, 1.5) + Math.min(seats / 20, 1);
 }
 
+function getProfessorLink(row) {
+  return (
+    row.rmp_link ||
+    row.rmp_url ||
+    row.rmp_profile ||
+    row.rmp_profile_link ||
+    row.professor_link ||
+    row.rateMyProfessorLink ||
+    row.rateMyProfessorURL ||
+    row.rateMyProfessorProfile ||
+    ""
+  );
+}
+
 export default function App() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +113,7 @@ export default function App() {
           _seats: parseNumber(row.seatsAvailable) ?? 0,
           _open: String(row.openSection).toLowerCase() === "true",
           _score: rowScore(row),
+          _professorLink: getProfessorLink(row),
         }));
 
         setRows(parsed);
@@ -307,18 +321,19 @@ export default function App() {
 
             <div className="field">
               <label>Minimum RMP rating</label>
-              <select
-                value={String(minRating)}
-                onChange={(e) => setMinRating(Number(e.target.value))}
-              >
-                <option value="0">Any</option>
-                <option value="2">2.0+</option>
-                <option value="2.5">2.5+</option>
-                <option value="3">3.0+</option>
-                <option value="3.5">3.5+</option>
-                <option value="4">4.0+</option>
-                <option value="4.5">4.5+</option>
-              </select>
+              <div className="slider-wrap">
+                <input
+                  type="range"
+                  min="0"
+                  max="5"
+                  step="0.5"
+                  value={minRating}
+                  onChange={(e) => setMinRating(Number(e.target.value))}
+                />
+                <div className="slider-value">
+                  {minRating === 0 ? "Any" : `${minRating.toFixed(1)}+`}
+                </div>
+              </div>
             </div>
 
             <div className="field">
@@ -422,7 +437,20 @@ export default function App() {
                   </div>
 
                   <div className="course-meta">
-                    <span>{row.facultyNames || "Instructor not listed"}</span>
+                    <span>
+                      {row._professorLink ? (
+                        <a
+                          href={row._professorLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="professor-link"
+                        >
+                          {row.facultyNames || "Instructor not listed"}
+                        </a>
+                      ) : (
+                        row.facultyNames || "Instructor not listed"
+                      )}
+                    </span>
                     <span>Section {row.section || "—"}</span>
                     <span>CRN {row.CRN || "—"}</span>
                   </div>
@@ -477,8 +505,8 @@ export default function App() {
 
                     <div className="score-box">
                       <div className="score-label">Best Fit</div>
-                      <div className="score-value">
-                        <Star size={14} />
+                      <div className="score-value score-star">
+                        <span className="star-emoji" aria-hidden="true">⭐</span>
                         {row._score.toFixed(1)}
                       </div>
                     </div>
