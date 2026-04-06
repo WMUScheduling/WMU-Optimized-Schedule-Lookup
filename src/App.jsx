@@ -104,27 +104,53 @@ function normalizeUrl(url) {
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     return trimmed;
   }
-  return `https://${trimmed}`;
+  if (trimmed.includes("ratemyprofessors.com")) {
+    return `https://${trimmed.replace(/^\/+/, "")}`;
+  }
+  return "";
 }
 
 function getProfessorLink(row) {
-  const raw =
-    row.rmp_link ||
-    row.rmp_url ||
-    row.rmp_profile ||
-    row.rmp_profile_link ||
-    row.professor_link ||
-    row.rateMyProfessorLink ||
-    row.rateMyProfessorURL ||
-    row.rateMyProfessorProfile ||
-    row["RMP Link"] ||
-    row["RMP URL"] ||
-    row["Rate My Professor"] ||
-    row["Rate My Professor Link"] ||
-    row["Professor URL"] ||
-    "";
+  const preferredKeys = [
+    "rmp_link",
+    "rmp_url",
+    "rmp_profile",
+    "rmp_profile_link",
+    "professor_link",
+    "rateMyProfessorLink",
+    "rateMyProfessorURL",
+    "rateMyProfessorProfile",
+    "RMP Link",
+    "RMP URL",
+    "Rate My Professor",
+    "Rate My Professor Link",
+    "Professor URL",
+  ];
 
-  return normalizeUrl(raw);
+  for (const key of preferredKeys) {
+    const value = row[key];
+    const normalized = normalizeUrl(value);
+    if (normalized) return normalized;
+  }
+
+  for (const [key, value] of Object.entries(row)) {
+    if (!value) continue;
+    const keyText = String(key).toLowerCase();
+    const valueText = String(value).trim();
+
+    const looksRelevant =
+      keyText.includes("rmp") ||
+      keyText.includes("rate") ||
+      keyText.includes("professor") ||
+      valueText.toLowerCase().includes("ratemyprofessors.com");
+
+    if (!looksRelevant) continue;
+
+    const normalized = normalizeUrl(valueText);
+    if (normalized) return normalized;
+  }
+
+  return "";
 }
 
 function getSubjectDescription(row) {
@@ -569,7 +595,8 @@ export default function App() {
                       <MapPin size={14} />
                       {row.campusDescription || "Campus not listed"}
                     </span>
-                    {row._professorLink && (
+
+                    {row._professorLink ? (
                       <a
                         href={row._professorLink}
                         target="_blank"
@@ -580,6 +607,11 @@ export default function App() {
                         <span className="grad-cap" aria-hidden="true">🎓</span>
                         RMP
                       </a>
+                    ) : (
+                      <span className="tag tag-rmp-button tag-rmp-missing" title="No RMP link found in this row">
+                        <span className="grad-cap" aria-hidden="true">🎓</span>
+                        No RMP
+                      </span>
                     )}
                   </div>
 
