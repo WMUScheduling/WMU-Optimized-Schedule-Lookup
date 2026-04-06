@@ -22,6 +22,10 @@ select {
   font: inherit;
 }
 
+a {
+  text-decoration: none;
+}
+
 .app-shell {
   min-height: 100vh;
   background:
@@ -275,6 +279,13 @@ select {
   margin-bottom: 12px;
 }
 
+.course-top-right {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
 .course-code {
   color: #93c5fd;
   font-size: 0.95rem;
@@ -296,17 +307,6 @@ select {
   margin-bottom: 14px;
 }
 
-.professor-link {
-  color: #93c5fd;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.professor-link:hover {
-  color: #bfdbfe;
-  text-decoration: underline;
-}
-
 .pill {
   white-space: nowrap;
   height: fit-content;
@@ -326,6 +326,12 @@ select {
   background: rgba(248, 113, 113, 0.16);
   color: #fca5a5;
   border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.pill-upper {
+  background: rgba(96, 165, 250, 0.16);
+  color: #bfdbfe;
+  border: 1px solid rgba(96, 165, 250, 0.3);
 }
 
 .tag-row,
@@ -351,6 +357,74 @@ select {
   border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
+.tag-rmp-button {
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.tag-rmp-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(96, 165, 250, 0.4);
+}
+
+.grad-cap {
+  font-size: 1rem;
+}
+
+.schedule-panel {
+  margin-top: 16px;
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.schedule-time {
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.schedule-day {
+  border-radius: 14px;
+  padding: 12px 8px;
+  text-align: center;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  color: #64748b;
+}
+
+.schedule-day-active {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.28), rgba(30, 41, 59, 0.95));
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #eff6ff;
+}
+
+.schedule-day-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.schedule-day-dot {
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .attributes {
   margin-top: 14px;
 }
@@ -359,11 +433,6 @@ select {
   background: rgba(59, 130, 246, 0.14);
   color: #bfdbfe;
   border: 1px solid rgba(96, 165, 250, 0.2);
-}
-
-.meeting-line {
-  margin-top: 14px;
-  color: #cbd5e1;
 }
 
 .score-grid {
@@ -433,6 +502,10 @@ select {
   .field-search {
     grid-column: span 2;
   }
+
+  .schedule-grid {
+    grid-template-columns: repeat(7, minmax(40px, 1fr));
+  }
 }
 
 @media (max-width: 700px) {
@@ -453,12 +526,21 @@ select {
 
   .filters-header,
   .results-toolbar,
-  .course-top {
+  .course-top,
+  .schedule-header {
     flex-direction: column;
     align-items: stretch;
   }
 
+  .course-top-right {
+    align-items: flex-start;
+  }
+
   .pill {
     align-self: flex-start;
+  }
+
+  .schedule-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

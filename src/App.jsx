@@ -13,6 +13,16 @@ import { motion } from "framer-motion";
 import "./App.css";
 
 const CSV_PATH = `${import.meta.env.BASE_URL}wmu_summer_2026_with_rmp.csv`;
+const WEEK_DAYS = ["M", "T", "W", "R", "F", "S", "U"];
+const WEEK_LABELS = {
+  M: "Mon",
+  T: "Tue",
+  W: "Wed",
+  R: "Thu",
+  F: "Fri",
+  S: "Sat",
+  U: "Sun",
+};
 
 function parseNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -20,11 +30,26 @@ function parseNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function extractDays(meetingSummary = "") {
+function extractDaysArray(meetingSummary = "") {
   const matches = [...meetingSummary.matchAll(/\|\s*([MTWRFSU]{1,7})\s*\|/g)].map(
     (m) => m[1]
   );
-  return [...new Set(matches)].join(", ");
+
+  const set = new Set();
+  matches.forEach((group) => {
+    group.split("").forEach((d) => set.add(d));
+  });
+
+  return WEEK_DAYS.filter((d) => set.has(d));
+}
+
+function extractTimeRange(meetingSummary = "") {
+  const timeMatch = meetingSummary.match(
+    /\|\s*(\d{1,2}:\d{2}\s*[AP]M)\s*-\s*(\d{1,2}:\d{2}\s*[AP]M)\s*\|/i
+  );
+
+  if (!timeMatch) return "";
+  return `${timeMatch[1]} to ${timeMatch[2]}`;
 }
 
 function inferModality(row) {
@@ -64,7 +89,12 @@ function rowScore(row) {
   const ratingsCount = parseNumber(row.rmp_num_ratings) ?? 0;
   const seats = parseNumber(row.seatsAvailable) ?? 0;
 
-  return rating * 2 - difficulty * 0.6 + Math.min(ratingsCount / 20, 1.5) + Math.min(seats / 20, 1);
+  return (
+    rating * 2 -
+    difficulty * 0.6 +
+    Math.min(ratingsCount / 20, 1.5) +
+    Math.min(seats / 20, 1)
+  );
 }
 
 function normalizeUrl(url) {
@@ -110,6 +140,23 @@ function getSubjectDescription(row) {
   );
 }
 
+function isUpperDivision(row) {
+  const courseNumber = parseNumber(row.courseNumber);
+  return courseNumber !== null && courseNumber >= 3000;
+}
+
+function buildScheduleBlocks(row) {
+  const activeDays = extractDaysArray(row.meetingSummary || "");
+  const timeRange = extractTimeRange(row.meetingSummary || "");
+
+  return WEEK_DAYS.map((day) => ({
+    key: day,
+    label: WEEK_LABELS[day],
+    active: activeDays.includes(day),
+    time: activeDays.includes(day) ? timeRange : "",
+  }));
+}
+
 export default function App() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +167,7 @@ export default function App() {
   const [modality, setModality] = useState("all");
   const [sortBy, setSortBy] = useState("best");
   const [openOnly, setOpenOnly] = useState(false);
+  const [upperDivisionOnly, setUpperDivisionOnly] = useState(false);
   const [minRating, setMinRating] = useState(0);
   const [page, setPage] = useState(1);
   const [resultsPerPage, setResultsPerPage] = useState(25);
@@ -135,7 +183,6 @@ export default function App() {
           _id: `${row.CRN || index}`,
           _modality: inferModality(row),
           _creditsText: summarizeCredits(row),
-          _days: extractDays(row.meetingSummary),
           _rating: parseNumber(row.rmp_rating),
           _difficulty: parseNumber(row.rmp_difficulty),
           _ratingsCount: parseNumber(row.rmp_num_ratings),
@@ -144,6 +191,8 @@ export default function App() {
           _score: rowScore(row),
           _professorLink: getProfessorLink(row),
           _subjectDescription: getSubjectDescription(row),
+          _upperDivision: isUpperDivision(row),
+          _scheduleBlocks: buildScheduleBlocks(row),
         }));
 
         setRows(parsed);
@@ -215,6 +264,10 @@ export default function App() {
       data = data.filter((r) => r._open && r._seats > 0);
     }
 
+    if (upperDivisionOnly) {
+      data = data.filter((r) => r._upperDivision);
+    }
+
     if (minRating > 0) {
       data = data.filter((r) => (r._rating ?? 0) >= minRating);
     }
@@ -239,11 +292,11 @@ export default function App() {
     }
 
     return data;
-  }, [rows, query, subject, modality, openOnly, minRating, sortBy]);
+  }, [rows, query, subject, modality, openOnly, upperDivisionOnly, minRating, sortBy]);
 
   useEffect(() => {
     setPage(1);
-  }, [query, subject, modality, openOnly, minRating, sortBy]);
+  }, [query, subject, modality, openOnly, upperDivisionOnly, minRating, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / resultsPerPage));
 
@@ -275,6 +328,7 @@ export default function App() {
     setModality("all");
     setSortBy("best");
     setOpenOnly(false);
+    setUpperDivisionOnly(false);
     setMinRating(0);
     setResultsPerPage(25);
     setPage(1);
@@ -293,7 +347,7 @@ export default function App() {
           <h1>Find classes faster</h1>
           <p>
             Search courses, compare instructors, and filter by subject, format,
-            availability, and rating.
+            availability, rating, and upper division status.
           </p>
         </motion.header>
 
@@ -408,6 +462,17 @@ export default function App() {
                 Open sections only
               </label>
             </div>
+
+            <div className="checkbox-row">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={upperDivisionOnly}
+                  onChange={(e) => setUpperDivisionOnly(e.target.checked)}
+                />
+                Upper Division Course
+              </label>
+            </div>
           </div>
         </section>
 
@@ -419,9 +484,7 @@ export default function App() {
                 {filtered.length === 0 ? 0 : (page - 1) * resultsPerPage + 1}
               </strong>{" "}
               to{" "}
-              <strong>
-                {Math.min(page * resultsPerPage, filtered.length)}
-              </strong>{" "}
+              <strong>{Math.min(page * resultsPerPage, filtered.length)}</strong>{" "}
               of <strong>{filtered.length}</strong>
             </div>
 
@@ -447,7 +510,6 @@ export default function App() {
           </div>
 
           {loading && <div className="status-card">Loading courses...</div>}
-
           {error && <div className="status-card error">{error}</div>}
 
           {!loading && !error && paginatedRows.length === 0 && (
@@ -472,33 +534,24 @@ export default function App() {
                       <h3>{row.courseTitle || "Untitled Course"}</h3>
                     </div>
 
-                    <div
-                      className={`pill ${
-                        row._open && row._seats > 0 ? "pill-open" : "pill-closed"
-                      }`}
-                    >
-                      {row._open && row._seats > 0
-                        ? `${row._seats} seats open`
-                        : "Closed or full"}
+                    <div className="course-top-right">
+                      {row._upperDivision && (
+                        <div className="pill pill-upper">Upper Division</div>
+                      )}
+                      <div
+                        className={`pill ${
+                          row._open && row._seats > 0 ? "pill-open" : "pill-closed"
+                        }`}
+                      >
+                        {row._open && row._seats > 0
+                          ? `${row._seats} seats open`
+                          : "Closed or full"}
+                      </div>
                     </div>
                   </div>
 
                   <div className="course-meta">
-                    <span>
-                      {row._professorLink ? (
-                        <a
-                          href={row._professorLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="professor-link"
-                          title="Open Rate My Professors profile"
-                        >
-                          {row.facultyNames || "Instructor not listed"}
-                        </a>
-                      ) : (
-                        row.facultyNames || "Instructor not listed"
-                      )}
-                    </span>
+                    <span>{row.facultyNames || "Instructor not listed"}</span>
                     <span>Section {row.section || "—"}</span>
                     <span>CRN {row.CRN || "—"}</span>
                   </div>
@@ -516,11 +569,41 @@ export default function App() {
                       <MapPin size={14} />
                       {row.campusDescription || "Campus not listed"}
                     </span>
+                    {row._professorLink && (
+                      <a
+                        href={row._professorLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="tag tag-rmp-button"
+                        title="Open Rate My Professors profile"
+                      >
+                        <span className="grad-cap" aria-hidden="true">🎓</span>
+                        RMP
+                      </a>
+                    )}
                   </div>
 
-                  <div className="meeting-line">
-                    {row._days || "No fixed days listed"} · {row.enrollment || 0}/
-                    {row.maximumEnrollment || "—"} enrolled
+                  <div className="schedule-panel">
+                    <div className="schedule-header">
+                      <span>Schedule</span>
+                      <span className="schedule-time">
+                        {extractTimeRange(row.meetingSummary || "") || "Time not listed"}
+                      </span>
+                    </div>
+
+                    <div className="schedule-grid">
+                      {row._scheduleBlocks.map((block) => (
+                        <div
+                          key={block.key}
+                          className={`schedule-day ${block.active ? "schedule-day-active" : ""}`}
+                        >
+                          <div className="schedule-day-label">{block.label}</div>
+                          <div className="schedule-day-dot">
+                            {block.active ? "●" : "○"}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   {row.attributes && (
