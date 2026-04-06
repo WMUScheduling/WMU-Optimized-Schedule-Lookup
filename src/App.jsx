@@ -1,9 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { Search, Filter, Star, Users, CalendarDays, Clock3, BookOpen, Wifi, RotateCcw } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { motion } from "framer-motion";
 
-const CSV_PATH = `${import.meta.env.BASE_URL}wmu_summer_2026_with_rmp.csv`;
+const CSV_PATH = "/mnt/data/wmu_summer_2026_with_rmp.csv";
 
 function parseNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -42,21 +50,7 @@ function rowScore(row) {
   return rating * 2 - difficulty * 0.6 + Math.min(ratingsCount / 20, 1.5) + Math.min(seats / 20, 1);
 }
 
-function pillStyle(bg, color) {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "8px 12px",
-    borderRadius: "999px",
-    background: bg,
-    color,
-    fontSize: "13px",
-    fontWeight: 500,
-  };
-}
-
-export default function App() {
+export default function WmuCourseFinderApp() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,7 +59,7 @@ export default function App() {
   const [subject, setSubject] = useState("all");
   const [modality, setModality] = useState("all");
   const [sortBy, setSortBy] = useState("best");
-  const [minRating, setMinRating] = useState(0);
+  const [minRating, setMinRating] = useState([0]);
   const [openOnly, setOpenOnly] = useState(false);
   const [upperDivisionOnly, setUpperDivisionOnly] = useState(false);
   const [psychOnly, setPsychOnly] = useState(false);
@@ -79,6 +73,7 @@ export default function App() {
         const parsed = (results.data || []).map((row, index) => ({
           ...row,
           _id: `${row.CRN || index}`,
+          _subjectCourse: `${row.subject || ""}${row.courseNumber || ""}`,
           _modality: inferModality(row),
           _creditsText: summarizeCredits(row),
           _days: extractDays(row.meetingSummary),
@@ -96,18 +91,20 @@ export default function App() {
         setLoading(false);
       },
       error: () => {
-        setError("Could not load the CSV. Make sure the file is inside your public folder.");
+        setError("Could not load the CSV. Make sure wmu_summer_2026_with_rmp.csv is available.");
         setLoading(false);
       },
     });
   }, []);
 
   const subjects = useMemo(() => {
-    return [...new Set(rows.map((r) => r.subject).filter(Boolean))].sort();
+    const vals = [...new Set(rows.map((r) => r.subject).filter(Boolean))].sort();
+    return vals;
   }, [rows]);
 
   const modalities = useMemo(() => {
-    return [...new Set(rows.map((r) => r._modality).filter(Boolean))].sort();
+    const vals = [...new Set(rows.map((r) => r._modality).filter(Boolean))].sort();
+    return vals;
   }, [rows]);
 
   const filtered = useMemo(() => {
@@ -137,7 +134,7 @@ export default function App() {
     if (modality !== "all") data = data.filter((r) => r._modality === modality);
     if (openOnly) data = data.filter((r) => r._open && r._seats > 0);
     if (upperDivisionOnly) data = data.filter((r) => r._upperDivision);
-    if (minRating > 0) data = data.filter((r) => (r._rating ?? 0) >= minRating);
+    if (minRating[0] > 0) data = data.filter((r) => (r._rating ?? 0) >= minRating[0]);
 
     switch (sortBy) {
       case "rating":
@@ -159,322 +156,225 @@ export default function App() {
     return data;
   }, [rows, query, subject, modality, sortBy, minRating, openOnly, upperDivisionOnly, psychOnly]);
 
-  const stats = useMemo(() => {
-    const openCount = filtered.filter((r) => r._open && r._seats > 0).length;
-    const rated = filtered.filter((r) => r._rating != null);
-    const avgRating = rated.length
-      ? (rated.reduce((sum, r) => sum + (r._rating ?? 0), 0) / rated.length).toFixed(2)
-      : "—";
-
-    return {
-      total: filtered.length,
-      open: openCount,
-      avgRating,
-    };
-  }, [filtered]);
-
-  function resetFilters() {
+  const resetFilters = () => {
     setQuery("");
     setSubject("all");
     setModality("all");
     setSortBy("best");
-    setMinRating(0);
+    setMinRating([0]);
     setOpenOnly(false);
     setUpperDivisionOnly(false);
     setPsychOnly(false);
-  }
+  };
+
+  const stats = useMemo(() => {
+    const openCount = filtered.filter((r) => r._open && r._seats > 0).length;
+    const avgRating = filtered.filter((r) => r._rating != null);
+    const meanRating = avgRating.length
+      ? (avgRating.reduce((sum, r) => sum + (r._rating ?? 0), 0) / avgRating.length).toFixed(2)
+      : "—";
+    return {
+      total: filtered.length,
+      open: openCount,
+      avgRating: meanRating,
+    };
+  }, [filtered]);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc",
-        padding: "24px",
-        fontFamily: "Arial, sans-serif",
-        color: "#0f172a",
-      }}
-    >
-      <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <div
-            style={{
-              background: "#ffffff",
-              borderRadius: "24px",
-              padding: "24px",
-              boxShadow: "0 4px 18px rgba(15, 23, 42, 0.08)",
-              marginBottom: "24px",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
-              <div>
-                <h1 style={{ margin: 0, fontSize: "36px" }}>WMU Course Finder</h1>
-                <p style={{ marginTop: "10px", color: "#475569" }}>
-                  Search classes, compare instructors, and filter by modality, availability, level, and ratings.
-                </p>
+    <div className="min-h-screen bg-slate-50 p-6 md:p-10">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid gap-4 md:grid-cols-[1.4fr_0.6fr]"
+        >
+          <Card className="rounded-2xl border-0 shadow-sm">
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-3xl font-semibold tracking-tight">WMU Course Finder</CardTitle>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Search classes, compare instructors, and filter by modality, level, availability, and rating.
+                  </p>
+                </div>
+                <Badge className="rounded-full px-3 py-1 text-sm">Summer 2026</Badge>
               </div>
-              <div style={pillStyle("#e2e8f0", "#0f172a")}>Summer 2026</div>
-            </div>
+            </CardHeader>
+          </Card>
+
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="rounded-2xl border-0 shadow-sm">
+              <CardContent className="p-4">
+                <div className="text-xs uppercase text-slate-500">Results</div>
+                <div className="mt-2 text-2xl font-semibold">{stats.total}</div>
+              </CardContent>
+            </Card>
+            <Card className="rounded-2xl border-0 shadow-sm">
+              <CardContent className="p-4">
+                <div className="text-xs uppercase text-slate-500">Open</div>
+                <div className="mt-2 text-2xl font-semibold">{stats.open}</div>
+              </CardContent>
+            </Card>
+            <Card className="rounded-2xl border-0 shadow-sm">
+              <CardContent className="p-4">
+                <div className="text-xs uppercase text-slate-500">Avg Rating</div>
+                <div className="mt-2 text-2xl font-semibold">{stats.avgRating}</div>
+              </CardContent>
+            </Card>
           </div>
         </motion.div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "280px 1fr",
-            gap: "24px",
-            alignItems: "start",
-          }}
-        >
-          <div
-            style={{
-              background: "#ffffff",
-              borderRadius: "24px",
-              padding: "20px",
-              boxShadow: "0 4px 18px rgba(15, 23, 42, 0.08)",
-              position: "sticky",
-              top: "24px",
-            }}
-          >
-            <h2 style={{ marginTop: 0, display: "flex", alignItems: "center", gap: "8px" }}>
-              <Filter size={18} /> Filters
-            </h2>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", marginBottom: "6px", fontWeight: 600 }}>Search</label>
-              <div style={{ position: "relative" }}>
-                <Search size={16} style={{ position: "absolute", left: "10px", top: "12px", color: "#64748b" }} />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="PSY, async, professor..."
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px 10px 34px",
-                    borderRadius: "12px",
-                    border: "1px solid #cbd5e1",
-                    boxSizing: "border-box",
-                  }}
-                />
+        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <Card className="h-fit rounded-2xl border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Filter className="h-5 w-5" /> Filters
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label>Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" placeholder="PSY, async, professor..." />
+                </div>
               </div>
-            </div>
 
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", marginBottom: "6px", fontWeight: 600 }}>Subject</label>
-              <select
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                style={{ width: "100%", padding: "10px", borderRadius: "12px", border: "1px solid #cbd5e1" }}
-              >
-                <option value="all">All subjects</option>
-                {subjects.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", marginBottom: "6px", fontWeight: 600 }}>Modality</label>
-              <select
-                value={modality}
-                onChange={(e) => setModality(e.target.value)}
-                style={{ width: "100%", padding: "10px", borderRadius: "12px", border: "1px solid #cbd5e1" }}
-              >
-                <option value="all">All modalities</option>
-                {modalities.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", marginBottom: "6px", fontWeight: 600 }}>
-                Minimum RMP Rating: {minRating.toFixed(1)}
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="5"
-                step="0.1"
-                value={minRating}
-                onChange={(e) => setMinRating(Number(e.target.value))}
-                style={{ width: "100%" }}
-              />
-            </div>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", marginBottom: "6px", fontWeight: 600 }}>Sort by</label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                style={{ width: "100%", padding: "10px", borderRadius: "12px", border: "1px solid #cbd5e1" }}
-              >
-                <option value="best">Best overall</option>
-                <option value="rating">Highest rating</option>
-                <option value="difficulty">Lowest difficulty</option>
-                <option value="seats">Most open seats</option>
-                <option value="course">Course number</option>
-              </select>
-            </div>
-
-            <div
-              style={{
-                background: "#f8fafc",
-                borderRadius: "16px",
-                padding: "12px",
-                marginBottom: "16px",
-              }}
-            >
-              <label style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-                <input type="checkbox" checked={openOnly} onChange={(e) => setOpenOnly(e.target.checked)} />
-                Open sections only
-              </label>
-              <label style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-                <input
-                  type="checkbox"
-                  checked={upperDivisionOnly}
-                  onChange={(e) => setUpperDivisionOnly(e.target.checked)}
-                />
-                Upper division only
-              </label>
-              <label style={{ display: "flex", gap: "8px" }}>
-                <input type="checkbox" checked={psychOnly} onChange={(e) => setPsychOnly(e.target.checked)} />
-                PSY only
-              </label>
-            </div>
-
-            <button
-              onClick={resetFilters}
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: "12px",
-                border: "1px solid #cbd5e1",
-                background: "#ffffff",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-                <RotateCcw size={16} />
-                Reset filters
-              </span>
-            </button>
-          </div>
-
-          <div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                gap: "16px",
-                marginBottom: "20px",
-              }}
-            >
-              <div style={{ background: "#fff", borderRadius: "20px", padding: "18px", boxShadow: "0 4px 18px rgba(15, 23, 42, 0.08)" }}>
-                <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase" }}>Results</div>
-                <div style={{ fontSize: "30px", fontWeight: 700, marginTop: "6px" }}>{stats.total}</div>
+              <div className="space-y-2">
+                <Label>Subject</Label>
+                <Select value={subject} onValueChange={setSubject}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All subjects" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All subjects</SelectItem>
+                    {subjects.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div style={{ background: "#fff", borderRadius: "20px", padding: "18px", boxShadow: "0 4px 18px rgba(15, 23, 42, 0.08)" }}>
-                <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase" }}>Open</div>
-                <div style={{ fontSize: "30px", fontWeight: 700, marginTop: "6px" }}>{stats.open}</div>
-              </div>
-              <div style={{ background: "#fff", borderRadius: "20px", padding: "18px", boxShadow: "0 4px 18px rgba(15, 23, 42, 0.08)" }}>
-                <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase" }}>Avg Rating</div>
-                <div style={{ fontSize: "30px", fontWeight: 700, marginTop: "6px" }}>{stats.avgRating}</div>
-              </div>
-            </div>
 
-            {loading && <div>Loading courses...</div>}
-            {error && <div style={{ color: "crimson" }}>{error}</div>}
+              <div className="space-y-2">
+                <Label>Modality</Label>
+                <Select value={modality} onValueChange={setModality}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All modalities" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All modalities</SelectItem>
+                    {modalities.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {!loading &&
-              !error &&
-              filtered.map((row, i) => (
-                <motion.div
-                  key={row._id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(i * 0.01, 0.12) }}
-                  style={{
-                    background: "#ffffff",
-                    borderRadius: "24px",
-                    padding: "20px",
-                    boxShadow: "0 4px 18px rgba(15, 23, 42, 0.08)",
-                    marginBottom: "16px",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: "18px", flexWrap: "wrap" }}>
-                    <div style={{ flex: 1, minWidth: "300px" }}>
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
-                        <span style={pillStyle("#e2e8f0", "#0f172a")}>{row.subject} {row.courseNumber}</span>
-                        <span style={pillStyle("#f1f5f9", "#334155")}>Section {row.section}</span>
-                        <span style={pillStyle("#f1f5f9", "#334155")}>CRN {row.CRN}</span>
-                        {row._open && row._seats > 0 ? (
-                          <span style={pillStyle("#dcfce7", "#166534")}>{row._seats} seats open</span>
-                        ) : (
-                          <span style={pillStyle("#fee2e2", "#991b1b")}>Closed or full</span>
+              <div className="space-y-3">
+                <Label>Minimum RMP Rating: {minRating[0].toFixed(1)}</Label>
+                <Slider value={minRating} min={0} max={5} step={0.1} onValueChange={setMinRating} />
+              </div>
+
+              <div className="space-y-3">
+                <Label>Sort by</Label>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="best">Best overall</SelectItem>
+                    <SelectItem value="rating">Highest rating</SelectItem>
+                    <SelectItem value="difficulty">Lowest difficulty</SelectItem>
+                    <SelectItem value="seats">Most open seats</SelectItem>
+                    <SelectItem value="course">Course number</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-3 rounded-xl bg-slate-50 p-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="openOnly" checked={openOnly} onCheckedChange={(v) => setOpenOnly(Boolean(v))} />
+                  <Label htmlFor="openOnly">Open sections only</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="upperDivisionOnly" checked={upperDivisionOnly} onCheckedChange={(v) => setUpperDivisionOnly(Boolean(v))} />
+                  <Label htmlFor="upperDivisionOnly">Upper division only</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="psychOnly" checked={psychOnly} onCheckedChange={(v) => setPsychOnly(Boolean(v))} />
+                  <Label htmlFor="psychOnly">PSY only</Label>
+                </div>
+              </div>
+
+              <Button variant="outline" className="w-full gap-2" onClick={resetFilters}>
+                <RotateCcw className="h-4 w-4" /> Reset filters
+              </Button>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-4">
+            {loading && <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="p-6">Loading courses...</CardContent></Card>}
+            {error && <Card className="rounded-2xl border-0 shadow-sm"><CardContent className="p-6 text-red-600">{error}</CardContent></Card>}
+
+            {!loading && !error && filtered.map((row, i) => (
+              <motion.div key={row._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.01, 0.15) }}>
+                <Card className="rounded-2xl border-0 shadow-sm transition-shadow hover:shadow-md">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary" className="rounded-full">{row.subject} {row.courseNumber}</Badge>
+                          <Badge variant="outline" className="rounded-full">Section {row.section}</Badge>
+                          <Badge variant="outline" className="rounded-full">CRN {row.CRN}</Badge>
+                          {row._open && row._seats > 0 ? (
+                            <Badge className="rounded-full">{row._seats} seats open</Badge>
+                          ) : (
+                            <Badge variant="destructive" className="rounded-full">Closed or full</Badge>
+                          )}
+                        </div>
+
+                        <div>
+                          <h3 className="text-xl font-semibold text-slate-900">{row.courseTitle || "Untitled Course"}</h3>
+                          <p className="mt-1 text-sm text-slate-600">{row.facultyNames || "Instructor not listed"}</p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 text-sm text-slate-600">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1"><BookOpen className="h-4 w-4" /> {row._creditsText} credits</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1"><Wifi className="h-4 w-4" /> {row._modality}</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1"><CalendarDays className="h-4 w-4" /> {row._days || "No fixed days listed"}</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1"><Clock3 className="h-4 w-4" /> {row.campusDescription || "Campus not listed"}</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1"><Users className="h-4 w-4" /> {row.enrollment || 0}/{row.maximumEnrollment || "—"} enrolled</span>
+                        </div>
+
+                        {row.attributes && (
+                          <div className="flex flex-wrap gap-2">
+                            {String(row.attributes).split(";").filter(Boolean).slice(0, 6).map((attr) => (
+                              <Badge key={attr} variant="secondary" className="rounded-full bg-blue-50 text-blue-700 hover:bg-blue-50">{attr.trim()}</Badge>
+                            ))}
+                          </div>
                         )}
                       </div>
 
-                      <h3 style={{ margin: "0 0 6px 0", fontSize: "24px" }}>{row.courseTitle || "Untitled Course"}</h3>
-                      <p style={{ margin: "0 0 12px 0", color: "#475569" }}>{row.facultyNames || "Instructor not listed"}</p>
-
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
-                        <span style={pillStyle("#f8fafc", "#334155")}><BookOpen size={14} /> {row._creditsText} credits</span>
-                        <span style={pillStyle("#f8fafc", "#334155")}><Wifi size={14} /> {row._modality}</span>
-                        <span style={pillStyle("#f8fafc", "#334155")}><CalendarDays size={14} /> {row._days || "No fixed days"}</span>
-                        <span style={pillStyle("#f8fafc", "#334155")}><Clock3 size={14} /> {row.campusDescription || "Campus not listed"}</span>
-                        <span style={pillStyle("#f8fafc", "#334155")}><Users size={14} /> {row.enrollment || 0}/{row.maximumEnrollment || "—"} enrolled</span>
-                      </div>
-
-                      {row.attributes && (
-                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                          {String(row.attributes)
-                            .split(";")
-                            .filter(Boolean)
-                            .slice(0, 6)
-                            .map((attr) => (
-                              <span key={attr} style={pillStyle("#eff6ff", "#1d4ed8")}>
-                                {attr.trim()}
-                              </span>
-                            ))}
+                      <div className="grid min-w-[240px] gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                        <div className="rounded-2xl bg-amber-50 p-4">
+                          <div className="flex items-center gap-2 text-sm font-medium text-amber-700"><Star className="h-4 w-4" /> RMP Rating</div>
+                          <div className="mt-2 text-2xl font-semibold text-slate-900">{row._rating ?? "—"}</div>
+                          <div className="text-xs text-slate-500">{row._ratingsCount ?? 0} ratings</div>
                         </div>
-                      )}
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, minmax(110px, 1fr))",
-                        gap: "12px",
-                        minWidth: "320px",
-                      }}
-                    >
-                      <div style={{ background: "#fffbeb", borderRadius: "18px", padding: "14px" }}>
-                        <div style={{ fontSize: "13px", color: "#a16207", display: "flex", alignItems: "center", gap: "6px" }}>
-                          <Star size={14} /> RMP Rating
+                        <div className="rounded-2xl bg-slate-100 p-4">
+                          <div className="text-sm font-medium text-slate-700">Difficulty</div>
+                          <div className="mt-2 text-2xl font-semibold text-slate-900">{row._difficulty ?? "—"}</div>
                         </div>
-                        <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{row._rating ?? "—"}</div>
-                        <div style={{ fontSize: "12px", color: "#64748b" }}>{row._ratingsCount ?? 0} ratings</div>
-                      </div>
-
-                      <div style={{ background: "#f1f5f9", borderRadius: "18px", padding: "14px" }}>
-                        <div style={{ fontSize: "13px", color: "#334155" }}>Difficulty</div>
-                        <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{row._difficulty ?? "—"}</div>
-                      </div>
-
-                      <div style={{ background: "#ecfdf5", borderRadius: "18px", padding: "14px" }}>
-                        <div style={{ fontSize: "13px", color: "#047857" }}>Best Fit</div>
-                        <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{row._score.toFixed(1)}</div>
+                        <div className="rounded-2xl bg-emerald-50 p-4">
+                          <div className="text-sm font-medium text-emerald-700">Best Fit Score</div>
+                          <div className="mt-2 text-2xl font-semibold text-slate-900">{row._score.toFixed(1)}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
           </div>
         </div>
       </div>
