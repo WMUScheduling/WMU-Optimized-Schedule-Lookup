@@ -665,14 +665,6 @@ export default function App() {
                       <div className="score-label">Difficulty</div>
                       <div className="score-value">{row._difficulty ?? "—"}</div>
                     </div>
-
-                    <div className="score-box">
-                      <div className="score-label">Best Fit</div>
-                      <div className="score-value score-star">
-                        <span className="star-emoji" aria-hidden="true">⭐</span>
-                        {row._score.toFixed(1)}
-                      </div>
-                    </div>
                   </div>
                 </motion.article>
               ))}
